@@ -28,7 +28,9 @@ class Pokemon:
     "defence": 0,
     "sp_attack": 0,
     "sp_defence": 0,
-    "speed": 0
+    "speed": 0,
+    "accuracy": 0,
+    "evasion": 0
 }
 
     def get_hp(self):
@@ -99,3 +101,17 @@ class Pokemon:
         
         direction = "fell" if change < 0 else "rose"
         print(f"{self.name}'s {stat_name} {direction}!")
+
+    def get_accuracy_multiplier(self):
+        stage = self.stages.get("accuracy", 0)
+        if stage >= 0:
+            return (3 + stage) / 3
+        else:
+            return 3 / (3 + abs(stage))
+        
+    def get_evasion_multiplier(self):
+        stage = self.stages.get("evasion", 0)
+        if stage >= 0:
+            return (3 + stage) / 3
+        else:
+            return 3 / (3 + abs(stage))
