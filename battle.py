@@ -1,16 +1,48 @@
-
+# battle.py
+from player_choice import get_player_move
+from ai_choice import get_npc_move
 
 def start_battle(player, opponent):
-    print(f"A wild {opponent.name} appeared!")
+    print(f"\nA wild {opponent.name} appeared!")
     print(f"Go, {player.name}!")
 
-    player_current_hp = player.get_hp()
-    opponent_current_hp = opponent.get_hp()
+    player_hp = player.get_hp()
+    opponent_hp = opponent.get_hp()
 
-    while player_current_hp > 0 and opponent_current_hp > 0:
-        
-        # 1. Determine who goes first based on get_speed()
-        # 2. Let the first one attack
-        # 3. Check if the second one fainted
-        # 4. If not, let the second one attack
-        pass
+    while player_hp > 0 and opponent_hp > 0:
+        print(f"\n{player.name}: {player_hp}/{player.get_hp()} HP")
+        print(f"{opponent.name}: {opponent_hp}/{opponent.get_hp()} HP")
+
+        # 1. Get Moves
+        p_move = get_player_move(player)
+        o_move = get_npc_move(opponent, player, player_hp, player.get_hp())
+
+        # 2. Determine Order
+        if player.get_speed() >= opponent.get_speed():
+            turn_order = [(player, opponent, p_move), (opponent, player, o_move)]
+        else:
+            turn_order = [(opponent, player, o_move), (player, opponent, p_move)]
+
+        # 3. Execute Turns
+        for attacker, defender, move in turn_order:
+            print(f"\n{attacker.name} used {move.name}!")
+            
+            if move.category == "Status":
+                defender.apply_status_effect(move.effect)
+            else:
+                damage = defender.take_damage(move, attacker)
+                if attacker == player:
+                    opponent_hp -= damage
+                else:
+                    player_hp -= damage
+                print(f"It dealt {damage} damage!")
+
+            if player_hp <= 0 or opponent_hp <= 0:
+                break
+
+    if player_hp > 0:
+        print(f"\n{opponent.name} fainted! You win!")
+        return True
+    else:
+        print(f"\n{player.name} fainted! Game Over.")
+        return False
