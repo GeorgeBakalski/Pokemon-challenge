@@ -3,8 +3,9 @@ import random
 from type_chart import get_multiplier
 
 class Pokemon:
-    def __init__(self, name, pokemon_type, hp, attack, defence, sp_attack, sp_defence, speed, moves=None):
+    def __init__(self, name, pokedex_id, pokemon_type, hp, attack, defence, sp_attack, sp_defence, speed, moves=None):
         self.name = name
+        self.pokedex_id = pokedex_id
         self.pokemon_type = pokemon_type
         self.hp = hp
         self.hp_IV = random.randint(0,15)
