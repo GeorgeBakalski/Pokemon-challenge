@@ -3,11 +3,11 @@ from player_choice import get_player_move
 from ai_choice import get_npc_move
 import random
 
-def start_battle(player, opponent):
+def start_battle(player, opponent, player_current_hp):
     print(f"\nA wild {opponent.name} appeared!")
     print(f"Go, {player.name}!")
 
-    player_hp = player.get_hp()
+    player_hp = player_current_hp
     opponent_hp = opponent.get_hp()
 
     while player_hp > 0 and opponent_hp > 0:
@@ -50,8 +50,8 @@ def start_battle(player, opponent):
                 print(f"{attacker.name}'s attack missed!")
 
     if player_hp > 0:
-        print(f"\n{opponent.name} fainted! You win!")
-        return True
+        print(f"\n{opponent.name} fainted!")
+        return True, player_hp
     else:
         print(f"\n{player.name} fainted! Game Over.")
-        return False
+        return False, 0

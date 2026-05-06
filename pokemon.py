@@ -57,7 +57,7 @@ class Pokemon:
         return self._calculate_stat(self.sp_attack, self.sp_attack_IV, "sp_attack")
 
     def get_sp_defence(self):
-        return self._calculate_stat(self.sp_defence, self.sp_defence_IV, "sp_def")
+        return self._calculate_stat(self.sp_defence, self.sp_defence_IV, "sp_defence")
 
     def get_speed(self):
         return self._calculate_stat(self.speed, self.speed_IV, "speed")
@@ -115,3 +115,7 @@ class Pokemon:
             return (3 + stage) / 3
         else:
             return 3 / (3 + abs(stage))
+        
+    def gain_level(self, amount=1):
+        self.level += amount
+        print(f"{self.name} grew to level {self.level}!")
