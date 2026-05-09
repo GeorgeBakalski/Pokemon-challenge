@@ -1,48 +1,44 @@
-#gui_test
+#gui_test.py
+
 import pygame
 import sys
-from pokemon_data import create_pokemon
+from ui import draw_intro_screen # Import your drawing function
 
 pygame.init()
-
-
 WIDTH, HEIGHT = 800, 600
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Pokemon Survival GUI Test")
+screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
+
+title_font = pygame.font.SysFont('Arial', 80, bold=True)
+menu_font = pygame.font.SysFont('Arial', 32)
 
 
-player_mon = create_pokemon("Charmander")
-opponent_mon = create_pokemon("Rhyhorn")
+original_bg = pygame.image.load("assets/intro_forest.png").convert()
+current_bg = pygame.transform.scale(original_bg, (WIDTH, HEIGHT))
 
-# 4. Load the Images
-# Pygame needs to "convert" images to its own format for speed
-player_sprite = pygame.image.load(player_mon.back_img).convert_alpha()
-opponent_sprite = pygame.image.load(opponent_mon.front_img).convert_alpha()
+def main():
+    global current_bg, screen 
+    # Scene 1: Intro
+    running_intro = True
+    while running_intro:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            
+            if event.type == pygame.VIDEORESIZE:
 
-# Scale them up so they aren't tiny! (The sprites are usually 64x64 or 96x96)
-player_sprite = pygame.transform.scale(player_sprite, (300, 300))
-opponent_sprite = pygame.transform.scale(opponent_sprite, (250, 250))
+                screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+                current_bg = pygame.transform.scale(original_bg, (event.w, event.h))
 
-# 5. Main Loop
-running = True
-while running:
-    # Check for events (like clicking the 'X' to close the window)
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+            if event.type == pygame.KEYDOWN:
+                running_intro = False
 
-    # DRAWING
-    screen.fill((255, 255, 255)) # Fill screen with white
+        # Call the drawing function from ui.py
+        draw_intro_screen(screen, title_font, menu_font, current_bg)
+        pygame.display.flip()
 
-    # Draw Opponent (Top Right)
-    screen.blit(opponent_sprite, (450, 50))
-    
-    # Draw Player (Bottom Left)
-    screen.blit(player_sprite, (50, 250))
+    # Scene 2: Selection (to be built next!)
+    print("Moving to selection...")
 
-    # Update the display
-    pygame.display.flip()
-
-# Clean up
-pygame.quit()
-sys.exit()
+if __name__ == "__main__":
+    main()
