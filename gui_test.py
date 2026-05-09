@@ -2,7 +2,9 @@
 
 import pygame
 import sys
+import math
 from ui import draw_intro_screen, draw_dialog_box, handle_resize, wrap_text
+
 pygame.init()
 pygame.mixer.init()
 WIDTH, HEIGHT = 800, 600
@@ -35,10 +37,10 @@ def main():
 
             if event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
                 select_sound.play()
-                showing_title = False # Move to Dialog
+                showing_title = False 
 
-        # Draw the TITLE version
         draw_intro_screen(screen, title_font, menu_font, current_bg)
+
         pygame.display.flip()
 
     # --- STATE 2: DIALOGUE ---
@@ -76,7 +78,7 @@ def main():
         oak_width = oak_height 
         oak_scaled = pygame.transform.scale(oak_sprite, (oak_width, oak_height))
 
-        pika_base_h = int(oak_height * 0.8) # Pikachu is 60% of Oak's height
+        pika_base_h = int(oak_height * 0.8) 
         pika_base_w = pika_base_h
 
         for event in pygame.event.get():
@@ -104,7 +106,7 @@ def main():
             
             # STAGE 1: Hold the ball in hand (Frames 1-30)
             if current_page == 2 and anim_timer < 30:
-                ball_x = oak_x + 20 # In his hand area
+                ball_x = oak_x + 20 
                 ball_y = oak_y + (oak_height // 2.5) 
                 screen.blit(pygame.transform.scale(ball_sprite, (ball_size, ball_size)), (ball_x, ball_y))
 
@@ -136,6 +138,87 @@ def main():
 
         pygame.display.flip()
 
-    print("Moving to selection...")
+        # --- STATE 3: STARTER SELECTION ---
+    starter_ball = pygame.image.load("assets/poke-ball.png").convert_alpha()
+    original_bg = pygame.image.load("assets/table.png").convert()
+    curr_w, curr_h = screen.get_size()
+    current_bg = pygame.transform.scale(original_bg, (curr_w, curr_h))
+    
+    starters = ["Bulbasaur", "Charmander", "Squirtle"]
+    selected_index = -1 
+
+    ball_size = int(curr_h * 0.15) 
+    angles = [0, 5, 10, 5, 0, -5, -10, -5] # The "animation" sequence
+    ball_frames = []
+    for a in angles:
+        # Scale a fresh ball for each angle
+        base = pygame.transform.scale(starter_ball, (ball_size, ball_size))
+        rotated = pygame.transform.rotate(base, a)
+        ball_frames.append(rotated)
+
+
+    selecting = True
+    while selecting:
+        clock.tick(60)
+        curr_w, curr_h = screen.get_size()
+        mouse_pos = pygame.mouse.get_pos()
+        hovering_any = False
+        
+        ball_size = int(curr_h * 0.15)
+        positions = [
+        (int(curr_w * 0.25) - ball_size // 2, int(curr_h * 0.35)),
+        (int(curr_w * 0.50) - ball_size // 2, int(curr_h * 0.35)),
+        (int(curr_w * 0.75) - ball_size // 2, int(curr_h * 0.35))
+    ]
+
+        ball_rects = [pygame.Rect(pos[0], pos[1], ball_size, ball_size) for pos in positions]
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+
+            if event.type == pygame.VIDEORESIZE:
+                _, current_bg = handle_resize(event, original_bg)
+                new_size = int(event.h * 0.15)
+                ball_frames = []
+                for a in angles:
+                    base = pygame.transform.scale(starter_ball, (new_size, new_size))
+                    rotated = pygame.transform.rotate(base, a)
+                    ball_frames.append(rotated)
+            
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = event.pos
+                for i, rect in enumerate(ball_rects):
+                    if rect.collidepoint(mouse_pos):
+                        selected_index = i
+                        select_sound.play()
+                        selecting = False 
+
+
+        screen.blit(current_bg, (0, 0)) 
+        frame_index = (pygame.time.get_ticks() // 100) % len(ball_frames)
+        
+        for i, rect in enumerate(ball_rects):
+            if rect.collidepoint(mouse_pos):
+                hovering_any = True
+                
+                # Use the pre-rotated frame
+                current_frame = ball_frames[frame_index]
+                
+                # Anchor it!
+                new_rect = current_frame.get_rect(midbottom=rect.midbottom)
+                screen.blit(current_frame, new_rect)
+            else:
+                # Use the "0 degree" frame (which is index 0 and 4)
+                screen.blit(ball_frames[0], rect)
+            
+
+        if hovering_any:
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+        else:
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+        pygame.display.flip()
+
 if __name__ == "__main__":
     main()
