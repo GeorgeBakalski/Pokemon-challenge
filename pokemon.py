@@ -83,14 +83,15 @@ class Pokemon:
 
         damage = (((level_mult * move.power * (atk / dfe)) / 50) + 2) * multiplier * stab
 
+        msg = ""
         if multiplier > 1:
-            print("It's super effective!")
+            msg = "It's super effective!"
         elif multiplier < 1 and multiplier > 0:
-            print("It's not very effective...")
+            msg = "It's not very effective..."
         elif multiplier == 0:
-            print(f"It had no effect on {self.name}!")
+            msg = f"It had no effect on {self.name}!"
         
-        return int(damage)
+        return int(damage), msg
     
     def apply_status_effect(self, effect):
         if effect is None:

@@ -75,3 +75,39 @@ def handle_resize(event, original_bg):
     new_w, new_h = event.w, event.h
     new_bg = pygame.transform.scale(original_bg, (new_w, new_h))
     return None, new_bg
+
+def draw_move_menu(screen, font, moves):
+    curr_w, curr_h = screen.get_size()
+    
+    box_height = min(180, curr_h // 4)
+    margin = 20
+
+    menu_width = (curr_w - margin * 2) // 2.5
+    menu_rect = pygame.Rect(curr_w - menu_width - margin, curr_h - box_height - margin, menu_width, box_height)
+
+
+    pygame.draw.rect(screen, (255, 255, 255), menu_rect)
+    pygame.draw.rect(screen, (0, 0, 0), menu_rect, 6)
+
+    move_rects = []
+    col_width = menu_rect.width // 2
+    row_height = menu_rect.height // 2
+
+
+    for i in range(min(len(moves), 4)):
+        col = i % 2     
+        row = i // 2     
+
+        x = menu_rect.x + (col * col_width)
+        y = menu_rect.y + (row * row_height)
+        
+        button_rect = pygame.Rect(x, y, col_width, row_height)
+        move_rects.append(button_rect)
+
+
+        move_name = moves[i]
+        text_surf = font.render(move_name.upper(), True, (0, 0, 0))
+        text_pos = text_surf.get_rect(center=button_rect.center)
+        screen.blit(text_surf, text_pos)
+
+    return move_rects

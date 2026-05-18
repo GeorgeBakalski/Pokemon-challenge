@@ -3,7 +3,7 @@
 import pygame
 import sys
 import math
-from ui import draw_intro_screen, draw_dialog_box, handle_resize, wrap_text
+from ui import draw_intro_screen, draw_dialog_box, handle_resize, draw_move_menu
 
 pygame.init()
 pygame.mixer.init()
@@ -143,15 +143,18 @@ def main():
     original_bg = pygame.image.load("assets/table.png").convert()
     curr_w, curr_h = screen.get_size()
     current_bg = pygame.transform.scale(original_bg, (curr_w, curr_h))
-    
-    starters = ["Bulbasaur", "Charmander", "Squirtle"]
+
+    starter_data = {
+    0: {"name": "BULBASAUR", "image": pygame.image.load("assets/sprites/1.png").convert_alpha()},
+    1: {"name": "CHARMANDER", "image": pygame.image.load("assets/sprites/4.png").convert_alpha()},
+    2: {"name": "SQUIRTLE", "image": pygame.image.load("assets/sprites/7.png").convert_alpha()}
+}
     selected_index = -1 
 
     ball_size = int(curr_h * 0.15) 
-    angles = [0, 5, 10, 5, 0, -5, -10, -5] # The "animation" sequence
+    angles = [0, 5, 10, 5, 0, -5, -10, -5] 
     ball_frames = []
     for a in angles:
-        # Scale a fresh ball for each angle
         base = pygame.transform.scale(starter_ball, (ball_size, ball_size))
         rotated = pygame.transform.rotate(base, a)
         ball_frames.append(rotated)
@@ -200,16 +203,48 @@ def main():
         
         for i, rect in enumerate(ball_rects):
             if rect.collidepoint(mouse_pos):
+                hovered_index = i
                 hovering_any = True
-                
-                # Use the pre-rotated frame
                 current_frame = ball_frames[frame_index]
-                
-                # Anchor it!
                 new_rect = current_frame.get_rect(midbottom=rect.midbottom)
                 screen.blit(current_frame, new_rect)
+                if hovered_index is not None:
+                    # --- 1. SCALE THE BOX ---
+                    box_h = int(curr_h * 0.45)
+                    box_w = int(box_h * 0.8)
+                    preview_rect = pygame.Rect((curr_w // 2) - (box_w // 2), int(curr_h * 0.5), box_w, box_h)
+                    
+                    pygame.draw.rect(screen, (255, 255, 255), preview_rect) 
+                    pygame.draw.rect(screen, (0, 0, 0), preview_rect, 3)    
+
+                    # --- 2. SCALE & CENTER THE SPRITE ---
+                    data = starter_data[hovered_index]
+                    raw_img = data["image"]
+                    
+                    sprite_w = int(box_w * 0.9)
+                    sprite_h = int(raw_img.get_height() * (sprite_w / raw_img.get_width()))
+                    big_img = pygame.transform.scale(raw_img, (sprite_w, sprite_h))
+                    img_pos = big_img.get_rect(center=(preview_rect.centerx, preview_rect.top + (box_h * 0.4)))
+                    screen.blit(big_img, img_pos)
+
+                    # --- 3. THE NAME PLATE ---
+                    plate_h = int(box_h * 0.2)
+                    name_plate_rect = pygame.Rect(preview_rect.x, preview_rect.bottom - plate_h, preview_rect.width, plate_h)
+                    pygame.draw.rect(screen, (200, 200, 200), name_plate_rect)
+                    pygame.draw.rect(screen, (0, 0, 0), name_plate_rect, 2)
+
+                    ui_font_size = int(plate_h * 0.6)
+                    temp_font = pygame.font.Font("assets/PKMN RBYGSC.ttf", ui_font_size)
+                    
+                    name_text = temp_font.render(data["name"], True, (0, 0, 0))
+                    
+                    if name_text.get_width() > name_plate_rect.width - 10:
+                        ratio = (name_plate_rect.width - 10) / name_text.get_width()
+                        name_text = pygame.transform.scale(name_text, (int(name_text.get_width() * ratio), int(name_text.get_height() * ratio)))
+
+                    name_pos = name_text.get_rect(center=name_plate_rect.center)
+                    screen.blit(name_text, name_pos)
             else:
-                # Use the "0 degree" frame (which is index 0 and 4)
                 screen.blit(ball_frames[0], rect)
             
 
@@ -219,6 +254,8 @@ def main():
             pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
         pygame.display.flip()
+
+        
 
 if __name__ == "__main__":
     main()
