@@ -4,6 +4,7 @@ import pygame
 import sys
 import math
 from ui import draw_intro_screen, draw_dialog_box, handle_resize, draw_move_menu
+from pokemon_data import get_random_opponent, create_pokemon
 
 pygame.init()
 pygame.mixer.init()
@@ -145,9 +146,9 @@ def main():
     current_bg = pygame.transform.scale(original_bg, (curr_w, curr_h))
 
     starter_data = {
-    0: {"name": "BULBASAUR", "image": pygame.image.load("assets/sprites/1.png").convert_alpha()},
-    1: {"name": "CHARMANDER", "image": pygame.image.load("assets/sprites/4.png").convert_alpha()},
-    2: {"name": "SQUIRTLE", "image": pygame.image.load("assets/sprites/7.png").convert_alpha()}
+    0: {"name": "Bulbasaur", "image": pygame.image.load("assets/sprites/1.png").convert_alpha()},
+    1: {"name": "Charmander", "image": pygame.image.load("assets/sprites/4.png").convert_alpha()},
+    2: {"name": "Squirtle", "image": pygame.image.load("assets/sprites/7.png").convert_alpha()}
 }
     selected_index = -1 
 
@@ -255,7 +256,45 @@ def main():
 
         pygame.display.flip()
 
-        
 
+        # --- STATE 4: BATTLE ---
+
+
+    box_height = min(180, curr_h // 4)
+    margin = 20
+    arena_height = curr_h - box_height - (margin * 1) 
+    original_bg = pygame.image.load("assets/Backgrounds/grass_bg.png").convert()
+    current_bg = pygame.transform.scale(original_bg, (curr_w, arena_height))
+
+    opponent = get_random_opponent()
+    starter = starter_data[selected_index]
+    player = create_pokemon(starter["name"])
+    opp_img = pygame.image.load(opponent.front_img).convert_alpha()
+    player_img = pygame.image.load(player.back_img).convert_alpha()
+
+    battling = True
+    while battling:
+        clock.tick(60)
+        curr_w, curr_h = screen.get_size()
+        mouse_pos = pygame.mouse.get_pos()
+        hovering_any = False
+        
+        screen.blit(current_bg, (0, 0))
+        
+        sprite_size = int(arena_height * 0.4)
+        opp_x = int(curr_w * 0.65)
+        opp_y = int(arena_height * 0.15)
+        player_x = int(curr_w * 0.15)
+        player_y = int(arena_height * 0.85) - sprite_size
+        opp_scaled = pygame.transform.scale(opp_img, (sprite_size, sprite_size))
+        player_scaled = pygame.transform.scale(player_img, (sprite_size, sprite_size))
+
+        screen.blit(opp_scaled, (opp_x, opp_y))
+        screen.blit(player_scaled, (player_x, player_y))
+        
+        draw_dialog_box(screen, menu_font, f"A wild {opponent.name} appeared!")
+
+
+        pygame.display.flip()
 if __name__ == "__main__":
     main()
