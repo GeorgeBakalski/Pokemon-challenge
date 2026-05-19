@@ -52,7 +52,6 @@ def execute_turn(attacker, defender, move):
         messages.append(f"{attacker.name} used {move.name}!")
         
         if move.category == "Status":
-            # Update apply_status_effect to return its message!
             status_msg = defender.apply_status_effect(move.effect)
             messages.append(status_msg)
             return 0, messages

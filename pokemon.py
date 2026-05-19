@@ -94,6 +94,7 @@ class Pokemon:
         return int(damage), msg
     
     def apply_status_effect(self, effect):
+        msg = ""
         if effect is None:
             return
         
@@ -102,7 +103,8 @@ class Pokemon:
         self.stages[stat_name] = max(-6, min(6, new_stage))
         
         direction = "fell" if change < 0 else "rose"
-        print(f"{self.name}'s {stat_name} {direction}!")
+        msg = f"{self.name}'s {stat_name} {direction}!"
+        return msg
 
     def get_accuracy_multiplier(self):
         stage = self.stages.get("accuracy", 0)

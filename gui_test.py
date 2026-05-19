@@ -3,8 +3,10 @@
 import pygame
 import sys
 import math
-from ui import draw_intro_screen, draw_dialog_box, handle_resize, draw_move_menu
+from ui import draw_intro_screen, draw_dialog_box, handle_resize, draw_move_menu, get_bottom_offset, draw_hp_bar
 from pokemon_data import get_random_opponent, create_pokemon
+from battle import process_battle_round
+from moves import MOVES
 
 pygame.init()
 pygame.mixer.init()
@@ -257,43 +259,140 @@ def main():
         pygame.display.flip()
 
 
-        # --- STATE 4: BATTLE ---
-
-
-    box_height = min(180, curr_h // 4)
-    margin = 20
-    arena_height = curr_h - box_height - (margin * 1) 
-    original_bg = pygame.image.load("assets/Backgrounds/grass_bg.png").convert()
-    current_bg = pygame.transform.scale(original_bg, (curr_w, arena_height))
-
+       # --- STATE 4: BATTLE SETUP (Runs Once) ---
     opponent = get_random_opponent()
     starter = starter_data[selected_index]
     player = create_pokemon(starter["name"])
+    battle_queue = []
+    move_buttons = []
+    player_hp = player.get_hp()
+    player_max_hp = player_hp
+    opponent_hp = opponent.get_hp()
+    opponent_max_hp = opponent_hp
+
     opp_img = pygame.image.load(opponent.front_img).convert_alpha()
     player_img = pygame.image.load(player.back_img).convert_alpha()
+    original_bg = pygame.image.load("assets/Backgrounds/grass_bg.png").convert()
+    player_plate_img = pygame.image.load("assets/player hp.png").convert_alpha()
+    player_plate_img.set_colorkey((255, 255, 255))
+    opp_plate_img = pygame.image.load("assets/opponent hp.png").convert_alpha()
+    opp_plate_img.set_colorkey((255, 255, 255))
+
+    battle_state = "MESSAGE"
+    current_message = f"A wild {opponent.name} appeared!"
 
     battling = True
     while battling:
         clock.tick(60)
         curr_w, curr_h = screen.get_size()
-        mouse_pos = pygame.mouse.get_pos()
         hovering_any = False
+        mouse_pos = pygame.mouse.get_pos()
         
+        # --- 1. CALCULATE SIZES  ---
+        box_height = min(180, curr_h // 4)
+        arena_height = curr_h - box_height
+        current_bg = pygame.transform.scale(original_bg, (curr_w, arena_height))
+        
+        opp_scale = int(arena_height * 0.6)
+        player_scale = int(arena_height * 0.9)
+        opp_scaled = pygame.transform.scale(opp_img, (opp_scale, opp_scale))
+        player_scaled = pygame.transform.scale(player_img, (player_scale, player_scale))
+
+        opp_padding = get_bottom_offset(opp_scaled)
+        player_padding = get_bottom_offset(player_scaled)
+        opp_rect = opp_scaled.get_rect()
+        opp_rect.midbottom = (int(curr_w * 0.75), int(arena_height * 0.55) + opp_padding)
+        player_rect = player_scaled.get_rect()
+        player_rect.midbottom = (int(curr_w * 0.25), (curr_h - box_height) + player_padding)
+
+        plate_scale_factor = arena_height / 400 # 400 is a "baseline" height
+
+        # Scale the Player Plate
+        p_plate_w = int(104 * plate_scale_factor)
+        p_plate_h = int(37 * plate_scale_factor) # Keep the aspect ratio!
+        player_plate_scaled = pygame.transform.scale(player_plate_img, (p_plate_w, p_plate_h))
+        p_plate_x = curr_w - p_plate_w - 20 
+        p_plate_y = arena_height - p_plate_h - 20
+        p_bar_x = p_plate_x + (48 * plate_scale_factor)
+        p_bar_y = p_plate_y + (17 * plate_scale_factor)
+
+
+        # Scale the Opponent Plate
+        o_plate_w = int(100 * plate_scale_factor)
+        o_plate_h = int(29 * plate_scale_factor)
+        opp_plate_scaled = pygame.transform.scale(opp_plate_img, (o_plate_w, o_plate_h))
+        o_plate_x = 20
+        o_plate_y = 20
+        o_bar_x = o_plate_x + (39 * plate_scale_factor)
+        o_bar_y = o_plate_y + (17 * plate_scale_factor)
+
+        # --- 2. DRAWING ---
         screen.blit(current_bg, (0, 0))
-        
-        sprite_size = int(arena_height * 0.4)
-        opp_x = int(curr_w * 0.65)
-        opp_y = int(arena_height * 0.15)
-        player_x = int(curr_w * 0.15)
-        player_y = int(arena_height * 0.85) - sprite_size
-        opp_scaled = pygame.transform.scale(opp_img, (sprite_size, sprite_size))
-        player_scaled = pygame.transform.scale(player_img, (sprite_size, sprite_size))
+        screen.blit(opp_scaled, opp_rect)
+        screen.blit(player_scaled, player_rect)
 
-        screen.blit(opp_scaled, (opp_x, opp_y))
-        screen.blit(player_scaled, (player_x, player_y))
+        screen.blit(player_plate_scaled, (p_plate_x, p_plate_y))
+        screen.blit(opp_plate_scaled, (o_plate_x, o_plate_y))
         
-        draw_dialog_box(screen, menu_font, f"A wild {opponent.name} appeared!")
 
+        draw_hp_bar(screen, p_bar_x, p_bar_y, player_hp, player_max_hp, plate_scale_factor)
+        draw_hp_bar(screen, o_bar_x, o_bar_y, opponent_hp, opponent_max_hp, plate_scale_factor)
+
+        # --- 3. INPUT  ---
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if battle_state == "MESSAGE":
+                    battle_state = "PLAYER_TURN"
+                
+                elif battle_state == "PLAYER_TURN":
+                    for i, rect in enumerate(move_buttons):
+                        if rect.collidepoint(event.pos):
+                            hovering_any = True
+                            chosen_move = MOVES[player.moves[i]]
+                            results = process_battle_round(player, opponent, chosen_move, player_hp, opponent_hp)
+                            for turn in results:
+                                battle_queue.extend(turn["messages"])
+                                player_hp = turn["player_hp_after"]
+                                opponent_hp = turn["opponent_hp_after"]
+                            
+                            battle_state = "EXECUTING_MOVE"
+                            current_message = battle_queue.pop(0)
+
+                elif battle_state == "EXECUTING_MOVE":
+                    if battle_queue:
+                        current_message = battle_queue.pop(0)
+                    else:
+                        if player_hp <= 0 or opponent_hp <= 0:
+                            battling = False 
+                        else:
+                            battle_state = "PLAYER_TURN"
+
+        
+        if battle_state == "MESSAGE":
+            draw_dialog_box(screen, menu_font, current_message)
+            move_buttons = [] 
+
+        elif battle_state == "PLAYER_TURN":
+            
+            draw_dialog_box(screen, menu_font, f"What will {player.name} do?", menu_open=True)
+            move_buttons = draw_move_menu(screen, menu_font, player.moves)
+
+            for rect in move_buttons:
+                if rect.collidepoint(mouse_pos):
+                    hovering_any = True
+
+        
+        elif battle_state == "EXECUTING_MOVE":
+            draw_dialog_box(screen, menu_font, current_message)
+
+
+        if hovering_any:
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+        else:
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)            
 
         pygame.display.flip()
 if __name__ == "__main__":
