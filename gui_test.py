@@ -266,8 +266,10 @@ def main():
     battle_queue = []
     move_buttons = []
     player_hp = player.get_hp()
+    display_player_hp = player_hp 
     player_max_hp = player_hp
     opponent_hp = opponent.get_hp()
+    display_opponent_hp = opponent_hp
     opponent_max_hp = opponent_hp
 
     opp_img = pygame.image.load(opponent.front_img).convert_alpha()
@@ -305,7 +307,7 @@ def main():
         player_rect = player_scaled.get_rect()
         player_rect.midbottom = (int(curr_w * 0.25), (curr_h - box_height) + player_padding)
 
-        plate_scale_factor = arena_height / 400 # 400 is a "baseline" height
+        plate_scale_factor = (arena_height / 180) 
 
         # Scale the Player Plate
         p_plate_w = int(104 * plate_scale_factor)
@@ -326,6 +328,21 @@ def main():
         o_bar_x = o_plate_x + (39 * plate_scale_factor)
         o_bar_y = o_plate_y + (17 * plate_scale_factor)
 
+        # --- SMOOTH HP DRAIN ---
+        drain_speed = 0.5
+        
+        if display_player_hp > player_hp:
+            display_player_hp -= drain_speed
+            if display_player_hp < player_hp: # Don't overshoot!
+                display_player_hp = player_hp
+        elif display_player_hp < player_hp: # For healing moves!
+            display_player_hp += drain_speed
+            
+        if display_opponent_hp > opponent_hp:
+            display_opponent_hp -= drain_speed
+            if display_opponent_hp < opponent_hp:
+                display_opponent_hp = opponent_hp
+
         # --- 2. DRAWING ---
         screen.blit(current_bg, (0, 0))
         screen.blit(opp_scaled, opp_rect)
@@ -335,8 +352,8 @@ def main():
         screen.blit(opp_plate_scaled, (o_plate_x, o_plate_y))
         
 
-        draw_hp_bar(screen, p_bar_x, p_bar_y, player_hp, player_max_hp, plate_scale_factor)
-        draw_hp_bar(screen, o_bar_x, o_bar_y, opponent_hp, opponent_max_hp, plate_scale_factor)
+        draw_hp_bar(screen, p_bar_x, p_bar_y, display_player_hp, player_max_hp, plate_scale_factor)
+        draw_hp_bar(screen, o_bar_x, o_bar_y, display_opponent_hp, opponent_max_hp, plate_scale_factor)
 
         # --- 3. INPUT  ---
         for event in pygame.event.get():
@@ -354,16 +371,25 @@ def main():
                             chosen_move = MOVES[player.moves[i]]
                             results = process_battle_round(player, opponent, chosen_move, player_hp, opponent_hp)
                             for turn in results:
-                                battle_queue.extend(turn["messages"])
-                                player_hp = turn["player_hp_after"]
-                                opponent_hp = turn["opponent_hp_after"]
+                               for msg in turn["messages"]:
+                                    battle_queue.append({
+                                        "msg": msg,
+                                        "p_hp": turn["player_hp_after"],
+                                        "o_hp": turn["opponent_hp_after"]
+                                    })
                             
                             battle_state = "EXECUTING_MOVE"
-                            current_message = battle_queue.pop(0)
+                            current_event = battle_queue.pop(0)
+                            current_message = current_event["msg"]
+                            player_hp = current_event["p_hp"]
+                            opponent_hp = current_event["o_hp"]
 
                 elif battle_state == "EXECUTING_MOVE":
                     if battle_queue:
-                        current_message = battle_queue.pop(0)
+                        current_event = battle_queue.pop(0)
+                        current_message = current_event["msg"]
+                        player_hp = current_event["p_hp"]
+                        opponent_hp = current_event["o_hp"]
                     else:
                         if player_hp <= 0 or opponent_hp <= 0:
                             battling = False 

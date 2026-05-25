@@ -124,7 +124,7 @@ def get_bottom_offset(surface):
 
 def draw_hp_bar(screen, x, y, current_hp, max_hp, scale_factor):
     bar_max_width = 48 * scale_factor
-    bar_height = 2 * scale_factor
+    bar_height = 3 * scale_factor
     shade_height = 1 * scale_factor
     
     # Calculate percentage
