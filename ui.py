@@ -11,14 +11,11 @@ def draw_intro_screen(screen, title_font, menu_font, bg_image):
     
     screen.blit(bg_image, (0, 0))
 
-    # Center text based on the CURRENT screen size
     title_surf = title_font.render("POKEMON SURVIVAL", True, (255, 215, 0))
     title_rect = title_surf.get_rect(center=(curr_w // 2, curr_h // 2 - 50))
     screen.blit(title_surf, title_rect)
 
-    # In ui.py
     start_surf = menu_font.render("Press any key to begin", True, (0, 0, 0))
-    # Center it horizontally, but place it lower than the title vertically
     start_rect = start_surf.get_rect(center=(curr_w // 2, curr_h // 2 + 100))
     screen.blit(start_surf, start_rect)
 
@@ -26,7 +23,6 @@ def draw_intro_screen(screen, title_font, menu_font, bg_image):
 def draw_dialog_box(screen, font, text,menu_open=False):
     curr_w, curr_h = screen.get_size()
     
-    # Draw the Box (Semi-transparent black rectangle)
     box_height = min(180, curr_h // 4) 
     box_rect = pygame.Rect(0, curr_h - box_height, curr_w, box_height)
 
@@ -42,12 +38,20 @@ def draw_dialog_box(screen, font, text,menu_open=False):
         max_text_width = curr_w - 60
     lines = wrap_text(text, font, max_text_width)
 
-    # Draw each line
     for i, line in enumerate(lines):
          if (i + 1) * font.get_linesize() < box_rect.height - 20:
-            text_surf = font.render(line, True, (0, 0, 0))
             line_y = box_rect.y + 20 + (i * font.get_linesize())
-            screen.blit(text_surf, (box_rect.x + 20, line_y))
+            draw_text(screen, font, line, box_rect.x + 20, line_y)
+
+def draw_text(screen, font, text, x, y, color=(64, 64, 64), shadow=True, scale=1):
+    if shadow:
+        shadow_color = (208, 208, 200) 
+        offset = max(1, int(1 * scale))
+        shadow_surf = font.render(text, True, shadow_color)
+        screen.blit(shadow_surf, (x + offset, y + offset))
+    
+    main_surf = font.render(text, True, color)
+    screen.blit(main_surf, (x, y))
 
 def wrap_text(text, font, max_width):
     """
@@ -92,7 +96,8 @@ def draw_move_menu(screen, font, moves):
     col_width = menu_rect.width // 2
     row_height = menu_rect.height // 2
 
-
+    mouse_pos = pygame.mouse.get_pos()
+    
     for i in range(min(len(moves), 4)):
         col = i % 2     
         row = i // 2     
@@ -103,11 +108,17 @@ def draw_move_menu(screen, font, moves):
         button_rect = pygame.Rect(x, y, col_width, row_height)
         move_rects.append(button_rect)
 
+        move_name = moves[i].upper()
+        text_color = (64, 64, 64) 
+        
+        if button_rect.collidepoint(mouse_pos):
+            text_color = (255, 0, 0) 
 
-        move_name = moves[i]
-        text_surf = font.render(move_name.upper(), True, (0, 0, 0))
-        text_pos = text_surf.get_rect(center=button_rect.center)
-        screen.blit(text_surf, text_pos)
+        temp_surf = font.render(move_name, True, text_color)
+        text_x = button_rect.centerx - (temp_surf.get_width() // 2)
+        text_y = button_rect.centery - (temp_surf.get_height() // 2)
+
+        draw_text(screen, font, move_name, text_x, text_y, color=text_color, scale=1)
 
     return move_rects
 
@@ -127,11 +138,9 @@ def draw_hp_bar(screen, x, y, current_hp, max_hp, scale_factor):
     bar_height = 3 * scale_factor
     shade_height = 1 * scale_factor
     
-    # Calculate percentage
     remaining_ratio = current_hp / max_hp
     current_width = int(bar_max_width * remaining_ratio)
     
-    # Determine color
     if remaining_ratio > 0.5:
         color = (112, 248, 168)
         color_shade = (88, 208, 128)   
