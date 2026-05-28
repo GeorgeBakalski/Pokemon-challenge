@@ -8,6 +8,7 @@ from pokemon_data import get_random_opponent, create_pokemon
 from battle import process_battle_round
 from moves import MOVES
 
+pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
 pygame.mixer.init()
 WIDTH, HEIGHT = 800, 600
@@ -440,10 +441,27 @@ def main():
                         player_hp = current_event["p_hp"]
                         opponent_hp = current_event["o_hp"]
                     else:
-                        if player_hp <= 0 or opponent_hp <= 0:
-                            battling = False 
+                        if opponent_hp <= 0:
+                            battle_state = "NEW_OPPONENT_PREP"
+                            current_message = f"{opponent.name} fainted! A new foe is approaching..."
+                        elif player_hp <= 0:
+                            battling = False
                         else:
                             battle_state = "PLAYER_TURN"
+                elif battle_state == "NEW_OPPONENT_PREP":
+                    opponent = get_random_opponent()
+                    opponent_hp = opponent.get_hp()
+                    opponent_max_hp = opponent_hp
+                    display_opponent_hp = opponent_hp
+                    
+                    opp_img = pygame.image.load(opponent.front_img).convert_alpha()
+                    
+                    # 3. Heal the player a little bit? (Optional reward)
+                    # player_hp = min(player_max_hp, player_hp + 20)
+
+                    # 4. Go back to the intro message
+                    current_message = f"A wild {opponent.name} appeared!"
+                    battle_state = "MESSAGE" 
 
         
         if battle_state == "MESSAGE":

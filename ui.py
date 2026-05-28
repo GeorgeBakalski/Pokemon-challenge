@@ -11,7 +11,7 @@ def draw_intro_screen(screen, title_font, menu_font, bg_image):
     
     screen.blit(bg_image, (0, 0))
 
-    title_surf = title_font.render("POKEMON SURVIVAL", True, (255, 215, 0))
+    title_surf = title_font.render("POKEMON GAUNTLET", True, (255, 215, 0))
     title_rect = title_surf.get_rect(center=(curr_w // 2, curr_h // 2 - 50))
     screen.blit(title_surf, title_rect)
 
