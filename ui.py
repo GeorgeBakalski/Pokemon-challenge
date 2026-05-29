@@ -20,7 +20,7 @@ def draw_intro_screen(screen, title_font, menu_font, bg_image):
     screen.blit(start_surf, start_rect)
 
 
-def draw_dialog_box(screen, font, text,menu_open=False):
+def draw_dialog_box(screen, font, wrapped_lines,  menu_open=False):
     curr_w, curr_h = screen.get_size()
     
     box_height = min(180, curr_h // 4) 
@@ -32,13 +32,7 @@ def draw_dialog_box(screen, font, text,menu_open=False):
     pygame.draw.rect(screen, (0, 0, 0), inner_rect, 2)
 
 
-    if menu_open:
-        max_text_width = (curr_w // 2) - 60
-    else:
-        max_text_width = curr_w - 60
-    lines = wrap_text(text, font, max_text_width)
-
-    for i, line in enumerate(lines):
+    for i, line in enumerate(wrapped_lines):
          if (i + 1) * font.get_linesize() < box_rect.height - 20:
             line_y = box_rect.y + 20 + (i * font.get_linesize())
             draw_text(screen, font, line, box_rect.x + 20, line_y)

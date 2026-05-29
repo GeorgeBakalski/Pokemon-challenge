@@ -122,4 +122,4 @@ class Pokemon:
         
     def gain_level(self, amount=1):
         self.level += amount
-        print(f"{self.name} grew to level {self.level}!")
+        

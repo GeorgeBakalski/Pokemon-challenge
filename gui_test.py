@@ -3,19 +3,33 @@
 import pygame
 import sys
 import math
-from ui import draw_intro_screen, draw_dialog_box, handle_resize, draw_move_menu, get_bottom_offset, draw_hp_bar, draw_text
+from ui import draw_intro_screen, draw_dialog_box, handle_resize, draw_move_menu, get_bottom_offset, draw_hp_bar, draw_text, wrap_text
 from pokemon_data import get_random_opponent, create_pokemon
 from battle import process_battle_round
 from moves import MOVES
 
-pygame.mixer.pre_init(44100, -16, 2, 512)
+pygame.mixer.pre_init(44100, -16, 2, 2048) 
 pygame.init()
-pygame.mixer.init()
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
 
+FONT_CACHE = {}
+
+def get_font(path, size):
+    key = (path, size)
+    if key not in FONT_CACHE:
+        FONT_CACHE[key] = pygame.font.Font(path, size)
+    return FONT_CACHE[key]
+
+IMAGE_CACHE = {}
+
+def get_image(path):
+    if path not in IMAGE_CACHE:
+        IMAGE_CACHE[path] = pygame.image.load(path).convert_alpha()
+    return IMAGE_CACHE[path]
+
 title_font = pygame.font.SysFont('Arial', 80, bold=True)
-menu_font = pygame.font.Font("assets/pokemon_fire_red.ttf", 50)
+menu_font = get_font("assets/pokemon_fire_red.ttf", 50)
 
 
 original_bg = pygame.image.load("assets/intro_forest.png").convert()
@@ -64,8 +78,8 @@ def main():
     oak_scaled = pygame.transform.scale(oak_sprite, (300, 300))
     oak_scaled.set_colorkey(transparent_color)
 
-    pikachu_sprite = pygame.image.load("assets/sprites/25.png").convert_alpha()
-    ball_sprite = pygame.image.load("assets/poke-ball.png").convert_alpha() 
+    pikachu_sprite = get_image("assets/sprites/25.png")
+    ball_sprite = get_image("assets/poke-ball.png")
     anim_timer = 0
 
     original_bg = pygame.image.load("assets/dialog_bg.png").convert()
@@ -138,20 +152,22 @@ def main():
                 screen.blit(pika_scaled, (pkmn_x, pkmn_y))
 
         if running_intro and current_page < len(intro_dialog):
-            draw_dialog_box(screen, menu_font, intro_dialog[current_page])
+            max_text_width = curr_w - 60
+            wrapped_lines = wrap_text(intro_dialog[current_page], menu_font, max_text_width)
+            draw_dialog_box(screen, menu_font, wrapped_lines)
 
         pygame.display.flip()
 
         # --- STATE 3: STARTER SELECTION ---
-    starter_ball = pygame.image.load("assets/poke-ball.png").convert_alpha()
+    starter_ball = get_image("assets/poke-ball.png")
     original_bg = pygame.image.load("assets/table.png").convert()
     curr_w, curr_h = screen.get_size()
     current_bg = pygame.transform.scale(original_bg, (curr_w, curr_h))
 
     starter_data = {
-    0: {"name": "Bulbasaur", "image": pygame.image.load("assets/sprites/1.png").convert_alpha()},
-    1: {"name": "Charmander", "image": pygame.image.load("assets/sprites/4.png").convert_alpha()},
-    2: {"name": "Squirtle", "image": pygame.image.load("assets/sprites/7.png").convert_alpha()}
+    0: {"name": "Bulbasaur", "image": get_image("assets/sprites/1.png")},
+    1: {"name": "Charmander", "image": get_image("assets/sprites/4.png")},
+    2: {"name": "Squirtle", "image": get_image("assets/sprites/7.png")}
 }
     selected_index = -1 
 
@@ -264,122 +280,157 @@ def main():
     opponent = get_random_opponent()
     starter = starter_data[selected_index]
     player = create_pokemon(starter["name"])
+    player.level = 5
+    opponent.level = player.level - 2
     battle_queue = []
     move_buttons = []
+
     player_hp = player.get_hp()
     display_player_hp = player_hp 
     player_max_hp = player_hp
     opponent_hp = opponent.get_hp()
     display_opponent_hp = opponent_hp
     opponent_max_hp = opponent_hp
+    wins = 0
+    battle = "Normal"
 
-    opp_img = pygame.image.load(opponent.front_img).convert_alpha()
-    player_img = pygame.image.load(player.back_img).convert_alpha()
+    p_name_text = player.name.upper()
+    p_lvl_text = f"{player.level}"
+    o_name_text = opponent.name.upper()
+    o_lvl_text = f"{opponent.level}"
+
+    opp_img = get_image(opponent.front_img)
+    player_img = get_image(player.back_img)
     original_bg = pygame.image.load("assets/Backgrounds/grass_bg.png").convert()
-    player_plate_img = pygame.image.load("assets/player hp.png").convert_alpha()
+    player_plate_img = get_image("assets/player hp.png")
     player_plate_img.set_colorkey((255, 255, 255))
-    opp_plate_img = pygame.image.load("assets/opponent hp.png").convert_alpha()
+    opp_plate_img = get_image("assets/opponent hp.png")
     opp_plate_img.set_colorkey((255, 255, 255))
+    
+
 
     battle_state = "MESSAGE"
     current_message = f"A wild {opponent.name} appeared!"
-
+    wrapped_lines = []
+    last_wrapped_message = ""
+    last_hp_string = ""
+    current_hp_string = f"{int(display_player_hp)} / {player_max_hp}"
+    p_hp_surf = None
+    
     battling = True
+    needs_scaling = True
     while battling:
         clock.tick(60)
         curr_w, curr_h = screen.get_size()
         hovering_any = False
         mouse_pos = pygame.mouse.get_pos()
+        levels_to_gain = 1
+        
         
         # --- 1. CALCULATE SIZES  ---
-        box_height = min(180, curr_h // 4)
-        arena_height = curr_h - box_height
-        current_bg = pygame.transform.scale(original_bg, (curr_w, arena_height))
-        
-        opp_scale = int(arena_height * 0.6)
-        player_scale = int(arena_height * 0.9)
-        opp_scaled = pygame.transform.scale(opp_img, (opp_scale, opp_scale))
-        player_scaled = pygame.transform.scale(player_img, (player_scale, player_scale))
+        if needs_scaling:
+            box_height = min(180, curr_h // 4)
+            arena_height = curr_h - box_height
+            current_bg = pygame.transform.scale(original_bg, (curr_w, arena_height))
+            
+            opp_scale = int(arena_height * 0.6)
+            player_scale = int(arena_height * 0.9)
+            opp_scaled = pygame.transform.scale(opp_img, (opp_scale, opp_scale))
+            player_scaled = pygame.transform.scale(player_img, (player_scale, player_scale))
 
-        opp_padding = get_bottom_offset(opp_scaled)
-        player_padding = get_bottom_offset(player_scaled)
-        opp_rect = opp_scaled.get_rect()
-        opp_rect.midbottom = (int(curr_w * 0.75), int(arena_height * 0.55) + opp_padding)
-        player_rect = player_scaled.get_rect()
-        player_rect.midbottom = (int(curr_w * 0.25), (curr_h - box_height) + player_padding)
+            opp_padding = get_bottom_offset(opp_scaled)
+            player_padding = get_bottom_offset(player_scaled)
+            opp_rect = opp_scaled.get_rect()
+            opp_rect.midbottom = (int(curr_w * 0.75), int(arena_height * 0.55) + opp_padding)
+            player_rect = player_scaled.get_rect()
+            player_rect.midbottom = (int(curr_w * 0.25), (curr_h - box_height) + player_padding)
 
-        plate_scale_factor = (arena_height / 180) 
-        dynamic_size = int(11 * plate_scale_factor) 
-        ui_font = pygame.font.Font("assets/pokemon_fire_red.ttf", dynamic_size)
+            plate_scale_factor = (arena_height / 180) 
+            dynamic_size = int(11 * plate_scale_factor) 
+            ui_font = get_font("assets/pokemon_fire_red.ttf", dynamic_size)
 
-        # Scale the Player Plate
-        p_plate_w = int(104 * plate_scale_factor)
-        p_plate_h = int(37 * plate_scale_factor) 
-        player_plate_scaled = pygame.transform.scale(player_plate_img, (p_plate_w, p_plate_h))
-        p_plate_x = curr_w - p_plate_w - 20 
-        p_plate_y = arena_height - p_plate_h - 20
-        p_bar_x = p_plate_x + (48 * plate_scale_factor)
-        p_bar_y = p_plate_y + (17 * plate_scale_factor)
+            # Scale the Player Plate
+            p_plate_w = int(104 * plate_scale_factor)
+            p_plate_h = int(37 * plate_scale_factor) 
+            player_plate_scaled = pygame.transform.scale(player_plate_img, (p_plate_w, p_plate_h))
+            p_plate_x = curr_w - p_plate_w - 20 
+            p_plate_y = arena_height - p_plate_h - 20
+            p_bar_x = p_plate_x + (48 * plate_scale_factor)
+            p_bar_y = p_plate_y + (17 * plate_scale_factor)
 
 
-        # Scale the Opponent Plate
-        o_plate_w = int(100 * plate_scale_factor)
-        o_plate_h = int(29 * plate_scale_factor)
-        opp_plate_scaled = pygame.transform.scale(opp_plate_img, (o_plate_w, o_plate_h))
-        o_plate_x = 20
-        o_plate_y = 20
-        o_bar_x = o_plate_x + (39 * plate_scale_factor)
-        o_bar_y = o_plate_y + (17 * plate_scale_factor)
+            # Scale the Opponent Plate
+            o_plate_w = int(100 * plate_scale_factor)
+            o_plate_h = int(29 * plate_scale_factor)
+            opp_plate_scaled = pygame.transform.scale(opp_plate_img, (o_plate_w, o_plate_h))
+            o_plate_x = 20
+            o_plate_y = 20
+            o_bar_x = o_plate_x + (39 * plate_scale_factor)
+            o_bar_y = o_plate_y + (17 * plate_scale_factor)
 
+
+            # PLAYER AND OPPONENT NAME AND LEVEL + HP
+            
+            lv_label_surface = ui_font.render("Lv", True, (64, 64, 64))
+            p_lvl_end_x = int(95 * plate_scale_factor)
+            o_lvl_end_x = int(87 * plate_scale_factor)
+
+            
+            p_name_surface = ui_font.render(p_name_text, True, (64, 64, 64))
+            p_lvl_surface = ui_font.render(p_lvl_text, True, (64, 64, 64))
+
+            p_name_x = int(14 * plate_scale_factor)
+            p_name_y = int(5 * plate_scale_factor)
+            p_lvl_x = p_lvl_end_x - p_lvl_surface.get_width()
+            p_lvl_y = int(5 * plate_scale_factor)
+            p_lv_label_x = p_lvl_x - lv_label_surface.get_width() - (2 * plate_scale_factor)
+
+            o_name_surface = ui_font.render(o_name_text, True, (64, 64, 64))
+            o_lvl_surface = ui_font.render(o_lvl_text, True, (64, 64, 64))
+
+            o_name_x =  int(6 * plate_scale_factor)
+            o_name_y = int(5 * plate_scale_factor)
+            o_lvl_x = o_lvl_end_x - o_lvl_surface.get_width()
+            o_lvl_y = int(5 * plate_scale_factor)
+            o_lv_label_x = o_lvl_x - lv_label_surface.get_width() - (2 * plate_scale_factor)
+
+            current_hp_string = f"{int(display_player_hp)} / {player_max_hp}"
+            hp_x = p_plate_x + (95 * plate_scale_factor) - ui_font.size(current_hp_string)[0]
+            hp_y = p_plate_y + (22 * plate_scale_factor) 
+
+            draw_text(player_plate_scaled, ui_font, p_name_text, p_name_x, p_name_y)
+            draw_text(player_plate_scaled, ui_font, p_lvl_text, p_lvl_x, p_lvl_y)
+            draw_text(player_plate_scaled, ui_font, "Lv", p_lv_label_x, p_lvl_y)
+
+            draw_text(opp_plate_scaled, ui_font, o_name_text, o_name_x, o_name_y)
+            draw_text(opp_plate_scaled, ui_font, o_lvl_text, o_lvl_x, o_lvl_y)
+            draw_text(opp_plate_scaled, ui_font, "Lv", o_lv_label_x, o_lvl_y)
+            needs_scaling = False
+
+
+        current_hp_string = f"{int(display_player_hp)} / {player_max_hp}"
         #  SMOOTH HP DRAIN 
         drain_speed = 0.5
-        
+            
         if display_player_hp > player_hp:
             display_player_hp -= drain_speed
             if display_player_hp < player_hp: 
                 display_player_hp = player_hp
         elif display_player_hp < player_hp: 
             display_player_hp += drain_speed
-            
+                
         if display_opponent_hp > opponent_hp:
             display_opponent_hp -= drain_speed
             if display_opponent_hp < opponent_hp:
                 display_opponent_hp = opponent_hp
-
-        # PLAYER AND OPPONENT NAME AND LEVEL + HP
-        lv_label_surface = ui_font.render("Lv", True, (64, 64, 64))
-        p_lvl_end_x = p_plate_x + (95 * plate_scale_factor)
-        o_lvl_end_x = o_plate_x + (87 * plate_scale_factor)
-        
-        p_name_text = player.name.upper()
-        p_lvl_text = f"{player.level}"
-
-        o_name_text = opponent.name.upper()
-        o_lvl_text = f"{opponent.level}"
+        # TEXT AND HP
 
         
-        p_name_surface = ui_font.render(p_name_text, True, (64, 64, 64))
-        p_lvl_surface = ui_font.render(p_lvl_text, True, (64, 64, 64))
-
-        p_name_x = p_plate_x + (14 * plate_scale_factor)
-        p_name_y = p_plate_y + (5 * plate_scale_factor)
-        p_lvl_x = p_lvl_end_x - p_lvl_surface.get_width()
-        p_lvl_y = p_plate_y + (5 * plate_scale_factor)
-        p_lv_label_x = p_lvl_x - lv_label_surface.get_width() - (2 * plate_scale_factor)
-
-        o_name_surface = ui_font.render(o_name_text, True, (64, 64, 64))
-        o_lvl_surface = ui_font.render(o_lvl_text, True, (64, 64, 64))
-
-        o_name_x = o_plate_x + (6 * plate_scale_factor)
-        o_name_y = o_plate_y + (5 * plate_scale_factor)
-        o_lvl_x = o_lvl_end_x - o_lvl_surface.get_width()
-        o_lvl_y = o_plate_y + (5 * plate_scale_factor)
-        o_lv_label_x = o_lvl_x - lv_label_surface.get_width() - (2 * plate_scale_factor)
-
-        hp_text = f"{int(display_player_hp)} / {player_max_hp}"
-        hp_surface = ui_font.render(hp_text, True, (64, 64, 64))
-        hp_x = p_plate_x + (95 * plate_scale_factor) - hp_surface.get_width()
-        hp_y = p_plate_y + (22 * plate_scale_factor) 
+        if current_hp_string != last_hp_string:
+            last_hp_string = current_hp_string
+            hp_x = p_plate_x + (95 * plate_scale_factor) - ui_font.size(current_hp_string)[0]
+            p_hp_surf = ui_font.render(current_hp_string, True, (64, 64, 64))
+            p_hp_shadow = ui_font.render(current_hp_string, True, (208, 208, 200))
 
         # --- 2. DRAWING ---
 
@@ -390,16 +441,9 @@ def main():
         screen.blit(player_plate_scaled, (p_plate_x, p_plate_y))
         screen.blit(opp_plate_scaled, (o_plate_x, o_plate_y))
         
-        draw_text(screen, ui_font, p_name_text, p_name_x, p_name_y)
-        draw_text(screen, ui_font, p_lvl_text, p_lvl_x, p_lvl_y)
-        draw_text(screen, ui_font, "Lv", p_lv_label_x, p_lvl_y)
-
-        draw_text(screen, ui_font, o_name_text, o_name_x, o_name_y)
-        draw_text(screen, ui_font, o_lvl_text, o_lvl_x, o_lvl_y)
-        draw_text(screen, ui_font, "Lv", o_lv_label_x, o_lvl_y)
-
         # For HP numbers
-        draw_text(screen, ui_font, hp_text, hp_x, hp_y)
+        screen.blit(p_hp_shadow, (hp_x + 1, hp_y + 1))
+        screen.blit(p_hp_surf, (hp_x, hp_y))
 
         draw_hp_bar(screen, p_bar_x, p_bar_y, display_player_hp, player_max_hp, plate_scale_factor)
         draw_hp_bar(screen, o_bar_x, o_bar_y, display_opponent_hp, opponent_max_hp, plate_scale_factor)
@@ -408,6 +452,9 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
+
+            if event.type == pygame.VIDEORESIZE:
+                needs_scaling = True
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 select_sound.play()
@@ -442,50 +489,80 @@ def main():
                         opponent_hp = current_event["o_hp"]
                     else:
                         if opponent_hp <= 0:
-                            battle_state = "NEW_OPPONENT_PREP"
-                            current_message = f"{opponent.name} fainted! A new foe is approaching..."
+                            wins += 1
+                            if battle == "BOSS":
+                                player.gain_level(levels_to_gain)
+                                player_hp = player.get_hp()
+                                player.stages = {
+                    "attack": 0,
+                    "defence": 0,
+                    "sp_attack": 0,
+                    "sp_defence": 0,
+                    "speed": 0,
+                    "accuracy": 0,
+                    "evasion": 0
+                }
+                                battle = "Normal"
+                            else:
+                                old_max = player.get_hp() 
+                                player.gain_level(levels_to_gain)
+                                new_max = player.get_hp() 
+
+                                hp_gained = new_max - old_max
+                                heal_amount = int(player.get_hp() * 0.20)
+                                player_hp = min(player.get_hp(), player_hp + heal_amount + hp_gained)
+
+                            opponent = get_random_opponent()
+                            if wins % 10 == 0:
+                                battle = "BOSS"
+                                opponent.level = player.level + 2
+                                levels_to_gain = 5
+                            else:
+                                opponent.level = player.level - 2
+                                levels_to_gain = 1
+
+                            p_lvl_text = f"{player.level}"
+                            player_max_hp = player.get_hp()
+                            opponent_hp = opponent.get_hp()
+                            opponent_max_hp = opponent_hp
+                            display_opponent_hp = opponent_hp
+                            opp_img = get_image(opponent.front_img)
+                            o_name_text = opponent.name.upper()
+                            o_lvl_text = f"{opponent.level}"
+                            
+                            current_message = f"A wild {opponent.name} appeared!"
+                            needs_scaling = True 
+                            battle_state = "MESSAGE" 
                         elif player_hp <= 0:
                             battling = False
                         else:
                             battle_state = "PLAYER_TURN"
-                elif battle_state == "NEW_OPPONENT_PREP":
-                    opponent = get_random_opponent()
-                    opponent_hp = opponent.get_hp()
-                    opponent_max_hp = opponent_hp
-                    display_opponent_hp = opponent_hp
-                    
-                    opp_img = pygame.image.load(opponent.front_img).convert_alpha()
-                    
-                    # 3. Heal the player a little bit? (Optional reward)
-                    # player_hp = min(player_max_hp, player_hp + 20)
 
-                    # 4. Go back to the intro message
-                    current_message = f"A wild {opponent.name} appeared!"
-                    battle_state = "MESSAGE" 
 
-        
-        if battle_state == "MESSAGE":
-            draw_dialog_box(screen, menu_font, current_message)
-            move_buttons = [] 
+        if battle_state == "PLAYER_TURN":
+            display_text = f"What will {player.name} do?"
+            max_text_width = (curr_w // 2) - 60
+        else:
+            display_text = current_message
+            max_text_width = curr_w - 60
 
-        elif battle_state == "PLAYER_TURN":
-            
-            draw_dialog_box(screen, menu_font, f"What will {player.name} do?", menu_open=True)
+        if display_text != last_wrapped_message:
+            wrapped_lines = wrap_text(display_text, menu_font, max_text_width)
+            last_wrapped_message = display_text
+
+
+        if battle_state == "PLAYER_TURN":
+            draw_dialog_box(screen, menu_font, wrapped_lines, menu_open=True)
             move_buttons = draw_move_menu(screen, menu_font, player.moves)
-
-            for rect in move_buttons:
-                if rect.collidepoint(mouse_pos):
-                    hovering_any = True
-
-        
-        elif battle_state == "EXECUTING_MOVE":
-            draw_dialog_box(screen, menu_font, current_message)
+        else:
+            draw_dialog_box(screen, menu_font, wrapped_lines)
+            move_buttons = []
 
 
-        if hovering_any:
+        if any(rect.collidepoint(mouse_pos) for rect in move_buttons):
             pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
         else:
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)            
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
         pygame.display.flip()
 if __name__ == "__main__":
